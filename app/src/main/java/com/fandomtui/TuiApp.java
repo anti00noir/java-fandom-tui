@@ -118,19 +118,55 @@ public class TuiApp {
     actionListBox = new ActionListBox(new TerminalSize(80, 20));
     mainPanel.addComponent(actionListBox, BorderLayout.Location.CENTER);
 
-    // Bottom panel: Status bar
-    statusLabel = new Label("Type a search query and press Enter or click Search | " +
-        "Arrow keys to navigate | q: Quit | ESC: Quit | " +
+    // Bottom panel: Status bar with inline key shortcuts
+    statusLabel = new Label("Type search + Enter | ↑↓: Navigate | Enter: Select | " +
+        "s: Focus search | q: Quit | " +
         "Wiki: " + apiClient.getWikiBaseUrl());
-    mainPanel.addComponent(statusLabel, BorderLayout.Location.BOTTOM);
+
+    // Create a bottom panel to hold status and shortcut buttons
+    Panel bottomPanel = new Panel(new LinearLayout(Direction.VERTICAL));
+    bottomPanel.addComponent(statusLabel);
+
+    // Add shortcut buttons as an alternative to keyboard shortcuts
+    Panel shortcutPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
+    Button quitButton = new Button("Quit (q)", () -> searchWindow.close());
+    Button searchFocusButton = new Button("Search (s)", () -> searchBox.takeFocus());
+    shortcutPanel.addComponent(quitButton);
+    shortcutPanel.addComponent(searchFocusButton);
+    bottomPanel.addComponent(shortcutPanel);
+
+    mainPanel.addComponent(bottomPanel, BorderLayout.Location.BOTTOM);
 
     searchWindow.setComponent(mainPanel);
 
-    // Handle keyboard events
+    // Use a different approach - handle unhandled keystrokes only
     searchWindow.addWindowListener(new WindowListenerAdapter() {
       @Override
-      public void onInput(Window basePane, KeyStroke keyStroke, AtomicBoolean deliverEvent) {
-        handleKeyStroke(keyStroke);
+      public void onUnhandledInput(Window basePane, KeyStroke keyStroke, AtomicBoolean hasBeenHandled) {
+        if (keyStroke.getKeyType() == KeyType.Character) {
+          Character c = keyStroke.getCharacter();
+
+          if (c == 'q' || c == 'Q') {
+            searchWindow.close();
+            hasBeenHandled.set(true);
+          } else if (c == 's' || c == 'S') {
+            searchBox.takeFocus();
+            hasBeenHandled.set(true);
+          }
+        } else if (keyStroke.getKeyType() == KeyType.Escape) {
+          searchWindow.close();
+          hasBeenHandled.set(true);
+        } else if (keyStroke.getKeyType() == KeyType.Enter) {
+          // Only handle Enter if it wasn't used by the ActionListBox
+          if (!searchBox.isFocused()) {
+            // Let ActionListBox handle its own Enter key
+            hasBeenHandled.set(false);
+          } else {
+            performSearch();
+            hasBeenHandled.set(true);
+          }
+        }
+        // Don't handle arrow keys at all - let Lanterna do it
       }
     });
 
